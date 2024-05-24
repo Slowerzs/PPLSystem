@@ -1,0 +1,21 @@
+[package]
+name = "endian_codec"
+description = "Decode / Encode rust types as packed bytes with specific bytes order"
+version = "0.1.2"
+authors = ["Sylwester Rąpała <sylwesterrapala@outlook.com>"]
+edition = "2018"
+
+documentation = "https://docs.rs/endian_codec"
+repository = "https://github.com/xoac/endian_codec"
+keywords = ["packed", "bytes", "packing struct", "endianess"]
+categories = ["no-std", "parsing"]
+license = "Apache-2.0 OR MIT"
+readme = "README.md"
+
+[dependencies]
+endian_codec_derive = { version = "0.1.2", optional = true, path = "endian_codec_derive" }
+
+[features]
+default = ["derive"]
+
+derive = ["endian_codec_derive"]
