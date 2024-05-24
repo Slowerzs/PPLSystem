@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 byteorder = "1.5.0"
 clap = { version = "4.5.4", features = ["derive"] }
-endian_codec = { path = "../endian_codec/", version = "0.1.2" }
+endian_codec = { path = "./endian_codec/", version = "0.1.2" }
 memmap2 = "0.9.4"
 pdb = "0.8.0"
 pe-parser = "0.5.1"
