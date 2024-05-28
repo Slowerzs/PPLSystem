@@ -213,7 +213,7 @@ fn main() {
         panic!("[-] Failed finding IPID or OXID for IRundown in target process. This is most likely due to the process not having initialized COM.");
     }
 
-    let (secret_offset, context_offset) = locate_secret_and_context().unwrap();
+    let (secret_offset, context_offset) = locate_secret_and_context().expect("[-] Failed locating the COM secret and context");
 
     create_dump_file(args.dump.clone()).unwrap();
 

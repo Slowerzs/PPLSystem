@@ -1,10 +1,14 @@
 #![allow(non_snake_case)]
 
 use std::ffi::c_void;
+use std::fs;
+use std::io::Cursor;
 use std::mem::{offset_of, size_of};
 use std::slice::from_raw_parts;
 
 use endian_codec::DecodeLE;
+use pdb::FallibleIterator;
+use symbolic::debuginfo::pe::PeObject;
 use windows::core::*;
 use windows::core::interface;
 use windows::Win32::System::Com::{
@@ -58,14 +62,81 @@ pub fn locate_secret_and_context() -> Option<(usize, usize)>{
         let context = header.ByRefHeader.pServerCtx;
         let secret = header.ByRefHeader.guidProcessSecret;
 
-        let secret_offset = locate_value_in_combase_data_section(secret)?;
-        let context_offset = locate_value_in_combase_data_section(context)?;
+        let mut secret_offset = locate_value_in_combase_data_section(secret);
+        let mut context_offset = locate_value_in_combase_data_section(context);
+
+        if secret_offset.is_some() && context_offset.is_some() {
+            println!("[+] Found COM secret and context offsets using IMarshalEnvoy");
+            return Some((secret_offset.unwrap(), context_offset.unwrap()));
+        }
+
+        println!("[-] Failed locating COM secret/context using IMarshalEnvoy, falling back to symbols");
+
+        let combase_data = fs::read(r"C:\Windows\System32\combase.dll").expect("Failed reading combase.dll");
+
+        let combase_object = PeObject::parse(&combase_data).expect("Failed parsing combase.dll");
+
+        let pdb_id = combase_object.debug_id().to_string().replace("-", "");
+
+        let mut pdb_data: Vec<u8> = Vec::new();
 
 
+        println!("[+] Downloading symbols ...");
+        ureq::get(
+            format!("https://msdl.microsoft.com/download/symbols/combase.pdb/{pdb_id}/combase.pdb")
+                .as_str(),
+        )
+        .call()
+        .expect("Failed downloading pdb for combase")
+        .into_reader()
+        .read_to_end(&mut pdb_data)
+        .unwrap();
 
-        return Some((secret_offset, context_offset));
+        println!("[+] Downloaded PDB for combase.dll!");
+        let mut pdb_parser = pdb::PDB::open(Cursor::new(pdb_data)).expect("Failed parsing combase.PDB");
+
+        let symbols_table = pdb_parser
+            .global_symbols()
+            .expect("Failed parsing combase.pdb");
+        let addresses_table = pdb_parser.address_map().expect("Failed parsing combase.pdb");
+
+        let combase_dll = GetModuleHandleA(s!("combase.dll")).unwrap();
+
+        let mut symbols = symbols_table.iter();
+        while let Some(symbol) = symbols.next().expect("Failed parsing pdb") {
+            match symbol.parse() {
+                Ok(pdb::SymbolData::Public(data)) => {
+
+                    let rva = data.offset.to_rva(&addresses_table).unwrap_or_default();
+                    if data.name.to_string().contains("?s_guidOle32Secret@CProcessSecret@@0U_GUID@@A") {
+                        println!("[+] Found COM secret offset");
+
+                        secret_offset = Some(combase_dll.0 as usize + rva.0 as usize);
+
+                        if secret_offset.is_some() && context_offset.is_some() {
+                            return Some((secret_offset.unwrap(), context_offset.unwrap()));
+                        }
+                    }
+
+                    if data.name.to_string().contains("g_pMTAEmptyCtx") {
+                        println!("[+] Found COM context offset");
+
+                        context_offset = Some(combase_dll.0 as usize + rva.0 as usize);
+
+                        if secret_offset.is_some() && context_offset.is_some() {
+                            return Some((secret_offset.unwrap(), context_offset.unwrap()));
+                        }
+                    }
+                
+                }
+                _ => {}
+            }
+        }
+
+
     }
 
+    None
 }
 
 fn locate_value_in_combase_data_section<T>(value: T) -> Option<usize>
