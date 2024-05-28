@@ -16,7 +16,7 @@ pplsystem.exe --dll <path to the unsigned DLL to load> --dump <Full path where t
 
 ![Image of the exploitation](images/pplsystem_inject.png)
 
-This proof of concept implements the mapping of an unsigned DLL inside a *PPL* process, however, no new thread is created.
+This proof of concept implements the mapping of an unsigned DLL inside a *PPL* process, however, no new thread is created, and the code in the unsigned DLL is not called.
 
 For some reason, in a virtual machine, I've found that `services.exe` does not always initialize COM. In such cases, injection does not work. It works on other *PPL* process who do initalize COM.
 
