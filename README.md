@@ -6,7 +6,7 @@ It creates a livedump of the machine through `NtDebugSystemControl` to extract t
 
 The livedump might slow down or freeze the machine for a couple of seconds.
 
-The tool can be build using: `cargo build --release`.
+The tool can be built using: `cargo build --release`.
 
 ## Usage 
 
